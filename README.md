@@ -5,14 +5,14 @@
 1. **[Instructions](#instructions)**
 
 ## [Introduction:](#introduction)
-This repository contains code for proposing candidate masks for biological cells in microscopy images. These cell candidates are used for cell tracking. The paper can be found at **[arXiv](https://arxiv.org/abs/.)** and tracking code is available at: **[Cell Tracker](https://github.com/SaadUllahAkram/CellTracker)**
+This repository contains code for proposing candidate masks for biological cells in microscopy images. These cell candidates are used for cell tracking. The paper can be found at **[arXiv](https://arxiv.org/abs/1705.03386)** and tracking code is available at: **[Cell Tracker](https://github.com/SaadUllahAkram/CellTracker)**
 
 If you find this code useful in your research, please cite:
 
     @article{akram2017a,
         author = {Akram S. U., Kannala J., Eklund L., and Heikkilä J.},
         title = {Cell Tracking via Proposal Generation and Selection},
-        journal = {arXiv:xxxx.xxxx},
+        journal = {arXiv:1705.03386},
         year = {2017}
     }
 
