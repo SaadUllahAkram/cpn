@@ -106,6 +106,8 @@ for i=1:N
         stats_loc(j,1) = func(px_bw, r, sz_orig, 0, rois(j,5), feats(j,:));
     end
     stats{i} = stats_loc;
+    %imshow(bia.draw.boundary([],im_cell{i}, stats{i}))
+    %bia.plot.centroids('',stats{i});
     for j = 1:R
         r   = rect_crop(j, :);
         tmp_lab = mask(r(1):r(2), r(3):r(4));
@@ -177,7 +179,7 @@ else
     max_corner = max(list,[],1) + 0.5;
     stats.BoundingBox = [min_corner (max_corner - min_corner)];
 end
-stats.Centroid = mean([r,c],1);
+stats.Centroid = mean([c,r],1);
 stats.Score = score;
 if nargin >= 6
     stats.Features = feats;

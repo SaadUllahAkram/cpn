@@ -1,4 +1,4 @@
-function test(opts, conf_cpn, conf_seg, dataset_names, test_seqs)
+function test(opts, conf_bb, conf_seg, dataset_names, test_seqs)
 % BB
 % NMS
 % SEG
@@ -46,7 +46,7 @@ for dataset_name = dataset_names
     end
     for train = opts.eval_train % 0(test eval), 1(train eval)
         clear bb_nms bb_greedy seg_nms seg_greedy
-        clearvars -except dataset_name train opts opts_loc model dataset_names test_seqs nms_iou thresh conf_cpn conf_seg
+        clearvars -except dataset_name train opts opts_loc model dataset_names test_seqs nms_iou thresh conf_bb conf_seg
 
         seq_ids = cpn.seq(test_seqs, train);
         if opts.verbose >= 2
@@ -60,7 +60,7 @@ for dataset_name = dataset_names
             loc_test = opts.dbg_type;% 0: no test, 1: compute resize impact, 2: bbox localization error, 3: SEG with GT masks
             if loc_test == 1
                 opts_debug = struct('resize_impact',1,'bb_loc_error',0,'cpn_bb_gt_seg',0,'mask_sz',25,'pad',3);
-                opts_loc.seg = 1;opts_loc.tra = 0;conf_cpn.scale=1;
+                opts_loc.seg = 1;opts_loc.tra = 0;conf_bb.scale=1;
             elseif loc_test == 2
                 opts_debug = struct('resize_impact',1,'bb_loc_error',1,'cpn_bb_gt_seg',1,'mask_sz',25,'pad',3);
                 opts_loc.seg = 1;opts_loc.tra = 0;
@@ -69,8 +69,8 @@ for dataset_name = dataset_names
                 if train; continue; end
                 gt_orig = bia.datasets.load(seq_name, {'gt'}, struct('tracked',opts_loc.tra,'segmented',opts_loc.seg,'pad',opts.use_pad));
             end
-            [gt,ims] = bia.datasets.load(seq_name, {'gt','im'}, struct('scale',conf_cpn.scale,'tracked',opts_loc.tra,'segmented',...
-                opts_loc.seg,'pad',opts.use_pad,'version',[0 conf_cpn.im_version 0], 'test', test_seqs == 0 && train == 0 ));
+            [gt,ims] = bia.datasets.load(seq_name, {'gt','im'}, struct('scale',conf_bb.scale,'tracked',opts_loc.tra,'segmented',...
+                opts_loc.seg,'pad',opts.use_pad,'version',[0 conf_bb.im_version 0], 'test', test_seqs == 0 && train == 0 ));
             T = length(ims);
             if loc_test == 1
                 cpn.exp.debug(opts_debug, gt_orig, gt)
@@ -83,8 +83,8 @@ for dataset_name = dataset_names
             end
             
             % CPN-BB
-            cpn_bb_def = fullfile(conf_cpn.paths.dir, sprintf('final_test%s.prototxt', conf_cpn.paths.id));
-            cpn_bb_weights = fullfile(conf_cpn.paths.dir, sprintf('final%s', conf_cpn.paths.id));
+            cpn_bb_def = fullfile(conf_bb.paths.dir, sprintf('final_test%s.prototxt', conf_bb.paths.id));
+            cpn_bb_weights = fullfile(conf_bb.paths.dir, sprintf('final%s', conf_bb.paths.id));
             if opts.verbose >= 2
                 fprintf('CPN: Loading: %s -> %s\n',cpn_bb_def, cpn_bb_weights);
             end
@@ -93,9 +93,9 @@ for dataset_name = dataset_names
             if strcmp(opts.use_bb,'gt')
                 bb_nms = get_gt_boxes(gt);
             elseif strcmp(opts.use_bb,'cpn')
-                % conf_cpn.nms = bia.utils.setfields(conf_cpn.nms,'nms_overlap_thres',0.5,'after_nms_topN',2000);
-                conf_cpn.debug = 0;
-                [bb_nms, bb_all, anchors_all] = cpn.bb.proposals(conf_cpn, net_bb, ch3(ims, opts.channels));
+                % conf_bb.nms = bia.utils.setfields(conf_bb.nms,'nms_overlap_thres',0.5,'after_nms_topN',2000);
+                conf_bb.debug = 0;
+                [bb_nms, bb_all, anchors_all] = cpn.bb.proposals(conf_bb, net_bb, ch3(ims, opts.channels));
                 % fns = eval_anchors(bb_nms, bb_all, anchors_all, gt);
 %                 for t=1:length(fns)
 %                     gts = gt.seg.stats{gt.seg.info(:,1)==t};
@@ -117,9 +117,9 @@ for dataset_name = dataset_names
             %if train && ~opts.save;    continue;  end
 
             % CPN-SEG
-            if conf_cpn.scale ~= conf_seg.scale
+            if conf_bb.scale ~= conf_seg.scale
                 % rescale bb_nms
-                bb_nms = resize_bb(bb_nms, conf_cpn.scale, conf_seg.scale);
+                bb_nms = resize_bb(bb_nms, conf_bb.scale, conf_seg.scale);
                 [gt,ims] = bia.datasets.load(seq_name, {'gt','im'}, struct('scale',conf_seg.scale,'tracked',opts_loc.tra,'segmented',...
                     opts_loc.seg,'pad',opts.use_pad,'version',[0 conf_seg.im_version 0], 'test', test_seqs == 0 && train == 0 ));                
             end
@@ -137,7 +137,7 @@ for dataset_name = dataset_names
                     fprintf('SEG: Loading: %s -> %s\n',cpn_seg_def, cpn_seg_weights);
                 end
                 bia.caffe.clear;
-                if conf_cpn.im_version ~= conf_seg.im_version
+                if conf_bb.im_version ~= conf_seg.im_version
                     [~,ims] = bia.datasets.load(seq_name, {'im'}, struct('scale',conf_seg.scale,'tracked',opts_loc.tra,'segmented',...
                     opts_loc.seg,'pad',opts.use_pad,'version',[0 conf_seg.im_version 0]));
                 end
@@ -147,7 +147,7 @@ for dataset_name = dataset_names
                 dir_exp = conf_seg.paths.dir;
             elseif strcmp(opts.use_seg,'thresh')
                 [bb_nms, seg_nms] = cpn_seg_threshold(bb_nms,ims,opts.roi_pad, keep_bb);
-                dir_exp = conf_cpn.paths.dir;
+                dir_exp = conf_bb.paths.dir;
             end
             
             % NMS
@@ -171,16 +171,16 @@ for dataset_name = dataset_names
                 eval_loc(gt, 2, seg_nms);
                 if opts.save
                     seg_nms_r = bia.struct.resize(seg_nms, gt.sz_orig, gt.sz, 1);
-                    save_file(opts, conf_cpn, conf_seg, opts.use_seg, sprintf('%s%s%s',opts.train_str{train+1},opts.model_str,seq_str), seg_nms_r);
+                    save_file(opts, conf_bb, conf_seg, opts.use_seg, sprintf('%s%s%s',opts.train_str{train+1},opts.model_str,seq_str), seg_nms_r);
                 end
             end
-            % cpn_compute_loss(conf_cpn, imdb_train, roidb_train, model);
+            % cpn_compute_loss(conf_bb, imdb_train, roidb_train, model);
             
             if 0;   plot_tip_fig(ims, gt, bb_nms, anchors_all, seg_nms);    end
 
             %% greedy detection code: todo: update later
             if ~opts.only_props
-                opts = get_nms_settings(opts, train, conf_cpn.paths.dir, bb_nms, gt);
+                opts = get_nms_settings(opts, train, conf_bb.paths.dir, bb_nms, gt);
                 seg_greedy_s = cell(T, 1);
                 bb_greedy = cell(T, 1);
                 if strcmp(opts.nms_type,'seg') && ismember(opts.use_seg, {'cpn','thresh','gt'})
@@ -204,7 +204,7 @@ for dataset_name = dataset_names
                 if opts.save
                     seg_nms = bia.struct.resize(seg_nms, gt.sz_orig, gt.sz, 1);
                     seg_greedy_s = bia.struct.resize(seg_greedy_s, gt.sz_orig, gt.sz, 1);
-                    save_file(opts, conf_cpn, conf_seg, opts.use_seg, sprintf('%s%s%s',opts.train_str{train+1},opts.model_str,seq_str), seg_nms, seg_greedy_s);
+                    save_file(opts, conf_bb, conf_seg, opts.use_seg, sprintf('%s%s%s',opts.train_str{train+1},opts.model_str,seq_str), seg_nms, seg_greedy_s);
                 end
                 if opts.save
                     vid_file_name = fullfile(dir_exp, sprintf('%s%s',opts.model_str,seq_str));
